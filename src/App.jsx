@@ -79,10 +79,8 @@ function AppShell() {
           fontSize: '13px',
         }}
       >
-        <p>© 2024 営業自動化システム. All rights reserved.</p>
-        <p style={{ marginTop: '8px', fontSize: '12px' }}>
-          データは API（バックエンドの PostgreSQL / Supabase）から取得しています
-        </p>
+        <p>© 2026 営業自動化システム.</p>
+
       </footer>
     </div>
   )
