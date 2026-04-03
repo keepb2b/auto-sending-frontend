@@ -79,8 +79,7 @@ function AppShell() {
           fontSize: '13px',
         }}
       >
-        <p>© 2026 営業自動化システム.</p>
-
+        <p>©2026 営業自動化システム.</p>
       </footer>
     </div>
   )
