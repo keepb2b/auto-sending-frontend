@@ -327,7 +327,7 @@ function Companies() {
           <tbody>
             {currentCompanies.length > 0 ? (
               currentCompanies.map((company, index) => (
-                <tr key={company.id} style={{background: selectedCompanies.includes(company.id) ? '#f0f8ff' : 'transparent'}}>
+                <tr key={company.id} style={{background: selectedCompanies.includes(company.id) ? '#f0f8ff' : 'transparent', height:"50px"}}>
                   <td>
                     <input
                       type="checkbox"

@@ -55,6 +55,7 @@ function Replies() {
   const [repliesSource, setRepliesSource] = useState(null)
   const [checking, setChecking] = useState(false)
   const [selectedReply, setSelectedReply] = useState(null)
+  const [selectedReplies, setSelectedReplies] = useState([])
 
   const location = useLocation()
 
@@ -94,6 +95,7 @@ function Replies() {
           )
           setRepliesSource('supabase')
           setReplies(mapSupabaseReplyRows(filtered))
+          if (!silentPoll) setSelectedReplies([])
           return
         }
         if (error && !silentPoll) {
@@ -104,6 +106,7 @@ function Replies() {
       setRepliesSource('api')
       const res = await axios.get('/api/replies')
       setReplies(Array.isArray(res.data) ? res.data : [])
+      if (!silentPoll) setSelectedReplies([])
     } catch (e) {
       console.error('Failed to fetch replies:', e)
       if (!silentPoll) {
@@ -182,6 +185,44 @@ function Replies() {
       setReplies(replies.map(r => (r.id === id ? { ...r, read: true } : r)))
     } catch (e) {
       console.error('Failed to mark read:', e)
+    }
+  }
+
+  const handleSelectAllReplies = (e) => {
+    if (e.target.checked) {
+      setSelectedReplies(replies.map((r) => r.id))
+    } else {
+      setSelectedReplies([])
+    }
+  }
+
+  const handleSelectOneReply = (id) => {
+    if (selectedReplies.includes(id)) {
+      setSelectedReplies(selectedReplies.filter((rid) => rid !== id))
+    } else {
+      setSelectedReplies([...selectedReplies, id])
+    }
+  }
+
+  const handleDeleteSelectedReplies = async () => {
+    if (selectedReplies.length === 0) {
+      alert('削除する返信を選択してください')
+      return
+    }
+    if (!window.confirm(`${selectedReplies.length}件の返信を削除しますか？`)) {
+      return
+    }
+    try {
+      const removed = new Set(selectedReplies)
+      for (const id of selectedReplies) {
+        await axios.delete(`/api/replies/${id}`)
+      }
+      setSelectedReply((sr) => (sr && removed.has(sr.id) ? null : sr))
+      setSelectedReplies([])
+      await fetchReplies(false)
+    } catch (error) {
+      console.error('返信削除エラー:', error)
+      alert('削除に失敗しました')
     }
   }
 
@@ -278,8 +319,52 @@ function Replies() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         {/* Reply list */}
         <div className="card" style={{ padding: 0, overflow: 'scroll', height:"308px", width:"668px" }}>
-          <div style={{ padding: '15px 20px', borderBottom: '1px solid #e2e8f0', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <MdEmail size={18} /> 返信一覧
+          <div
+            style={{
+              padding: '15px 20px',
+              borderBottom: '1px solid #e2e8f0',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input
+                type="checkbox"
+                checked={
+                  selectedReplies.length === replies.length &&
+                  replies.length > 0
+                }
+                onChange={handleSelectAllReplies}
+                style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                title="一覧をすべて選択"
+              />
+              <MdEmail size={18} /> 返信一覧
+            </div>
+            {selectedReplies.length > 0 && (
+              <button
+                type="button"
+                onClick={handleDeleteSelectedReplies}
+                style={{
+                  padding: '8px 16px',
+                  background: '#e74c3c',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  fontSize: '14px',
+                }}
+              >
+                🗑️ 選択削除 ({selectedReplies.length})
+              </button>
+            )}
           </div>
           {listLoading && replies.length === 0 ? (
             <div style={{ minHeight: 220 }} aria-hidden />
@@ -295,27 +380,51 @@ function Replies() {
                   key={reply.id}
                   onClick={() => { setSelectedReply(reply); markRead(reply.id) }}
                   style={{
-                    padding: '15px 20px',
+                    padding: '12px 20px 12px 12px',
                     borderBottom: '1px solid #f1f5f9',
                     cursor: 'pointer',
-                    background: selectedReply?.id === reply.id ? '#eff6ff' : !isReplyRead(reply) ? '#fefce8' : 'white',
+                    display: 'flex',
+                    alignItems: 'stretch',
+                    gap: '10px',
+                    background:
+                      selectedReplies.includes(reply.id)
+                        ? '#f0f8ff'
+                        : selectedReply?.id === reply.id
+                          ? '#eff6ff'
+                          : !isReplyRead(reply)
+                            ? '#fefce8'
+                            : 'white',
                     borderLeft: !isReplyRead(reply) ? '4px solid #f59e0b' : '4px solid transparent'
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <span style={{ fontWeight: !isReplyRead(reply) ? 'bold' : 'normal', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <MdBusiness size={14} style={{ color: '#667eea' }} />
-                      {replyDisplayName(reply)}
-                    </span>
-                    <span style={{ fontSize: '11px', color: '#999' }}>
-                      {reply.received_at ? new Date(reply.received_at).toLocaleDateString('ja-JP') : '-'}
-                    </span>
+                  <div
+                    role="presentation"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ display: 'flex', alignItems: 'flex-start', paddingTop: '2px' }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedReplies.includes(reply.id)}
+                      onChange={() => handleSelectOneReply(reply.id)}
+                      style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+                    />
                   </div>
-                  <div style={{ fontSize: '13px', color: '#374151', marginBottom: '4px', fontWeight: !isReplyRead(reply) ? '600' : 'normal' }}>
-                    {reply.subject}
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {replyBodyPreview(reply)}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                      <span style={{ fontWeight: !isReplyRead(reply) ? 'bold' : 'normal', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <MdBusiness size={14} style={{ color: '#667eea' }} />
+                        {replyDisplayName(reply)}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#999' }}>
+                        {reply.received_at ? new Date(reply.received_at).toLocaleDateString('ja-JP') : '-'}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: '#374151', marginBottom: '4px', fontWeight: !isReplyRead(reply) ? '600' : 'normal' }}>
+                      {reply.subject}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {replyBodyPreview(reply)}
+                    </div>
                   </div>
                 </div>
               ))}
