@@ -15,7 +15,7 @@ export default defineConfig({
   // nginx proxies with Host: leadstack.jp; Vite 5+ blocks unknown hosts unless allowed.
   preview: {
     host: '127.0.0.1',
-    port: 3000,
+    port: 3001,
     strictPort: true,
     allowedHosts: true
   }

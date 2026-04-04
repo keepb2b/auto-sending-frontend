@@ -30,21 +30,7 @@ function AppShell() {
               </div>
               営業自動化システム
             </h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div
-                style={{
-                  background: 'rgba(255, 255, 255, 0.15)',
-                  padding: '8px 16px',
-                  borderRadius: '8px',
-                  color: 'white',
-                  fontSize: '13px',
-                  backdropFilter: 'blur(10px)',
-                }}
-              >
-                管理者
-              </div>
-              <Avatar name="管理者" size={36} color="#3b82f6" />
-            </div>
+           
           </div>
           <nav className="nav" style={{ marginTop: '16px' }}>
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : undefined)}>
