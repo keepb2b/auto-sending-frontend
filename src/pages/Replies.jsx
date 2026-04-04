@@ -8,6 +8,10 @@ import {
 } from 'react-icons/md'
 import DataLoadingLayer from '../components/DataLoadingLayer'
 
+function normalizeReplyEmail(e) {
+  return String(e ?? '').trim().toLowerCase()
+}
+
 function isReplyRead(r) {
   const v = r?.read
   return v === true || v === 'true' || v === 't' || v === 1
@@ -62,6 +66,21 @@ function Replies() {
       }
 
       if (isSupabaseRepliesConfigured() && supabase) {
+        const { data: sentOkRows, error: coErr } = await supabase
+          .from('companies')
+          .select('email')
+          .eq('email_status', '送信成功')
+
+        if (coErr && !silentPoll) {
+          console.warn('Supabase companies (送信成功) fetch failed:', coErr.message)
+        }
+
+        const allowFromEmails = new Set(
+          (sentOkRows ?? [])
+            .map((row) => normalizeReplyEmail(row.email))
+            .filter(Boolean)
+        )
+
         const { data, error } = await supabase
           .from('replies')
           .select(
@@ -70,8 +89,11 @@ function Replies() {
           .order('received_at', { ascending: false })
 
         if (!error && data != null) {
+          const filtered = (data ?? []).filter((r) =>
+            allowFromEmails.has(normalizeReplyEmail(r.from_email))
+          )
           setRepliesSource('supabase')
-          setReplies(mapSupabaseReplyRows(data))
+          setReplies(mapSupabaseReplyRows(filtered))
           return
         }
         if (error && !silentPoll) {
