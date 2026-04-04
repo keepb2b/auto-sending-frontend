@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useLocation } from 'react-router-dom'
 import axios from 'axios'
 import { isSupabaseRepliesConfigured, supabase } from '../lib/supabaseClient'
@@ -56,8 +56,46 @@ function Replies() {
   const [checking, setChecking] = useState(false)
   const [selectedReply, setSelectedReply] = useState(null)
   const [selectedReplies, setSelectedReplies] = useState([])
+  const [replySearchTerm, setReplySearchTerm] = useState('')
+  const selectAllRepliesRef = useRef(null)
 
   const location = useLocation()
+
+  const filteredReplies = useMemo(() => {
+    const q = replySearchTerm.trim().toLowerCase()
+    if (!q) return replies
+    return replies.filter((r) => {
+      const name = replyDisplayName(r).toLowerCase()
+      const subj = String(r.subject ?? '').toLowerCase()
+      const em = String(r.from_email ?? '').toLowerCase()
+      const prev = replyBodyPreview(r).toLowerCase()
+      return (
+        name.includes(q) ||
+        subj.includes(q) ||
+        em.includes(q) ||
+        prev.includes(q)
+      )
+    })
+  }, [replies, replySearchTerm])
+
+  const filteredReplyIdSet = useMemo(
+    () => new Set(filteredReplies.map((r) => r.id)),
+    [filteredReplies]
+  )
+  const selectedCountInFiltered = selectedReplies.filter((id) =>
+    filteredReplyIdSet.has(id)
+  ).length
+  const allFilteredSelected =
+    filteredReplies.length > 0 &&
+    selectedCountInFiltered === filteredReplies.length
+
+  useEffect(() => {
+    const el = selectAllRepliesRef.current
+    if (!el) return
+    const n = filteredReplies.length
+    const sel = selectedCountInFiltered
+    el.indeterminate = n > 0 && sel > 0 && sel < n
+  }, [filteredReplies.length, selectedCountInFiltered])
 
   const fetchReplies = useCallback(async (silentPoll = false) => {
     try {
@@ -190,18 +228,16 @@ function Replies() {
 
   const handleSelectAllReplies = (e) => {
     if (e.target.checked) {
-      setSelectedReplies(replies.map((r) => r.id))
+      setSelectedReplies(filteredReplies.map((r) => r.id))
     } else {
       setSelectedReplies([])
     }
   }
 
   const handleSelectOneReply = (id) => {
-    if (selectedReplies.includes(id)) {
-      setSelectedReplies(selectedReplies.filter((rid) => rid !== id))
-    } else {
-      setSelectedReplies([...selectedReplies, id])
-    }
+    setSelectedReplies((prev) =>
+      prev.includes(id) ? prev.filter((rid) => rid !== id) : [...prev, id]
+    )
   }
 
   const handleDeleteSelectedReplies = async () => {
@@ -212,10 +248,16 @@ function Replies() {
     if (!window.confirm(`${selectedReplies.length}件の返信を削除しますか？`)) {
       return
     }
+    const ids = [...selectedReplies]
+    const removed = new Set(ids)
     try {
-      const removed = new Set(selectedReplies)
-      for (const id of selectedReplies) {
-        await axios.delete(`/api/replies/${id}`)
+      if (repliesSource === 'supabase' && supabase) {
+        const { error } = await supabase.from('replies').delete().in('id', ids)
+        if (error) throw error
+      } else {
+        for (const id of ids) {
+          await axios.delete(`/api/replies/${id}`)
+        }
       }
       setSelectedReply((sr) => (sr && removed.has(sr.id) ? null : sr))
       setSelectedReplies([])
@@ -316,6 +358,81 @@ function Replies() {
         </div>
       </div>
 
+      <div
+        className="card hover-rotate-lift animate-fade-in-left delay-100"
+        style={{ marginBottom: '20px' }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            gap: '15px',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
+            <MdSearch
+              size={20}
+              className="icon-hover-spin"
+              style={{
+                position: 'absolute',
+                left: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#999',
+              }}
+            />
+            <input
+              type="text"
+              placeholder="企業名・件名・本文・メールで検索..."
+              value={replySearchTerm}
+              onChange={(e) => setReplySearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 10px 10px 40px',
+                borderRadius: '4px',
+                border: '1px solid #ddd',
+              }}
+            />
+          </div>
+          <div
+            style={{
+              padding: '10px 20px',
+              background: '#667eea',
+              color: 'white',
+              borderRadius: '4px',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <MdInbox size={18} />
+            {filteredReplies.length}件
+          </div>
+          {selectedReplies.length > 0 && (
+            <button
+              type="button"
+              onClick={handleDeleteSelectedReplies}
+              style={{
+                padding: '10px 20px',
+                background: '#e74c3c',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              🗑️ 選択削除 ({selectedReplies.length})
+            </button>
+          )}
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         {/* Reply list */}
         <div className="card" style={{ padding: 0, overflow: 'scroll', height:"308px", width:"668px" }}>
@@ -326,45 +443,18 @@ function Replies() {
               fontWeight: 'bold',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-              flexWrap: 'wrap',
+              gap: '8px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <input
-                type="checkbox"
-                checked={
-                  selectedReplies.length === replies.length &&
-                  replies.length > 0
-                }
-                onChange={handleSelectAllReplies}
-                style={{ cursor: 'pointer', width: '18px', height: '18px' }}
-                title="一覧をすべて選択"
-              />
-              <MdEmail size={18} /> 返信一覧
-            </div>
-            {selectedReplies.length > 0 && (
-              <button
-                type="button"
-                onClick={handleDeleteSelectedReplies}
-                style={{
-                  padding: '8px 16px',
-                  background: '#e74c3c',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  fontSize: '14px',
-                }}
-              >
-                🗑️ 選択削除 ({selectedReplies.length})
-              </button>
-            )}
+            <input
+              ref={selectAllRepliesRef}
+              type="checkbox"
+              checked={allFilteredSelected}
+              onChange={handleSelectAllReplies}
+              style={{ cursor: 'pointer', width: '18px', height: '18px' }}
+              title="表示中の一覧をすべて選択"
+            />
+            <MdEmail size={18} /> 返信一覧
           </div>
           {listLoading && replies.length === 0 ? (
             <div style={{ minHeight: 220 }} aria-hidden />
@@ -373,9 +463,14 @@ function Replies() {
               <MdInbox size={48} style={{ opacity: 0.3, display: 'block', margin: '0 auto 10px' }} />
               返信がありません。IMAP から取り込むには「返信を確認」を押してください（DB に行があれば自動表示されます）。
             </div>
+          ) : filteredReplies.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#999' }}>
+              <MdSearch size={40} style={{ opacity: 0.35, display: 'block', margin: '0 auto 10px' }} />
+              検索に一致する返信がありません。
+            </div>
           ) : (
             <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-              {replies.map(reply => (
+              {filteredReplies.map(reply => (
                 <div
                   key={reply.id}
                   onClick={() => { setSelectedReply(reply); markRead(reply.id) }}
