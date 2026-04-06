@@ -435,7 +435,7 @@ function Replies() {
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         {/* Reply list */}
-        <div className="card" style={{ padding: 0, overflow: 'scroll', height:"308px", width:"668px" }}>
+        <div className="card" style={{ padding: 0, overflow: 'scroll', height:"408px", width:"668px" }}>
           <div
             style={{
               padding: '15px 20px',
@@ -469,7 +469,7 @@ function Replies() {
               検索に一致する返信がありません。
             </div>
           ) : (
-            <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            <div style={{ maxHeight: '500px'}}>
               {filteredReplies.map(reply => (
                 <div
                   key={reply.id}
@@ -528,7 +528,7 @@ function Replies() {
         </div>
 
         {/* Reply detail */}
-        <div className="card" style={{height:"308px", width:"668px", overflow:"scroll"}}>
+        <div className="card" style={{height:"408px", width:"668px", overflow:"scroll"}}>
           {selectedReply ? (
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
