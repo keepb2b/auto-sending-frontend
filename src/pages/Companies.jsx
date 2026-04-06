@@ -23,6 +23,8 @@ function Companies() {
   const [uploadResult, setUploadResult] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
+  /** Click 会社名 cell to toggle full name vs ellipsis */
+  const [expandedCompanyNameId, setExpandedCompanyNameId] = useState(null)
 
   const location = useLocation()
 
@@ -337,9 +339,49 @@ function Companies() {
                     />
                   </td>
                   <td>{startIndex + index + 1}</td>
-                  <td style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-                    <MdBusiness size={16} style={{color: '#667eea'}} />
-                    <strong>{company.company_name}</strong>
+                  <td
+                    style={{
+                      maxWidth: 220,
+                      minWidth: 0,
+                      cursor: 'pointer',
+                      verticalAlign: 'middle',
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setExpandedCompanyNameId((prev) =>
+                        prev === company.id ? null : company.id
+                      )
+                    }}
+                    title="クリックで全文 / 省略を切り替え"
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        minWidth: 0,
+                      }}
+                    >
+                      <MdBusiness size={16} style={{ color: '#667eea', flexShrink: 0 }} />
+                      <strong
+                        style={
+                          expandedCompanyNameId === company.id
+                            ? {
+                                whiteSpace: 'normal',
+                                wordBreak: 'break-word',
+                                overflow: 'visible',
+                              }
+                            : {
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                minWidth: 0,
+                              }
+                        }
+                      >
+                        {company.company_name}
+                      </strong>
+                    </div>
                   </td>
                   <td>
                     {company.email ? (
